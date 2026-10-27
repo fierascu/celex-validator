@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CELEX Number Validator & Composer</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────── */
+    header {
+      background: #003776;
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header img { height: 36px; }
+    header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: .03em; }
+    header p { font-size: .8rem; opacity: .75; margin-top: .1rem; }
+
+    /* ── Main layout ──────────────────────────────────────────────────── */
+    main {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* ── Card ─────────────────────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      padding: 1.5rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #003776;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid #003776;
+      padding-bottom: .4rem;
+    }
+
+    /* ── CELEX visual display ─────────────────────────────────────────── */
+    .celex-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: stretch;
+      min-height: 64px;
+    }
+    .celex-segment {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-radius: 6px;
+      overflow: hidden;
+      min-width: 48px;
+      flex: 0 0 auto;
+      box-shadow: 0 1px 4px rgba(0,0,0,.15);
+    }
+    .celex-segment .seg-value {
+      font-family: 'Courier New', monospace;
+      font-size: 1.6rem;
+      font-weight: 700;
+      padding: .35rem .6rem;
+      color: #fff;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    .celex-segment .seg-label {
+      font-size: .6rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 2px 4px;
+      background: rgba(0,0,0,.25);
+      color: #fff;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Segment colours */
+    .seg-sector    .seg-value { background: #003776; }
+    .seg-year      .seg-value { background: #1565c0; }
+    .seg-doctype   .seg-value { background: #6a1b9a; }
+    .seg-number    .seg-value { background: #1b5e20; }
+    .seg-suffix    .seg-value { background: #e65100; }
+    .seg-unknown   .seg-value { background: #b0bec5; color: #333; }
+
+    /* ── Input area ───────────────────────────────────────────────────── */
+    .input-row {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .input-row input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      font-family: 'Courier New', monospace;
+      font-size: 1.25rem;
+      padding: .5rem .75rem;
+      border: 2px solid #ccd0d9;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color .2s;
+      text-transform: uppercase;
+    }
+    .input-row input:focus { border-color: #003776; }
+    .input-row button {
+      padding: .55rem 1.4rem;
+      background: #003776;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: .95rem;
+      cursor: pointer;
+      transition: background .2s;
+      white-space: nowrap;
+    }
+    .input-row button:hover { background: #1565c0; }
+    .input-row button.clear-btn {
+      background: transparent;
+      color: #003776;
+      border: 2px solid #003776;
+    }
+    .input-row button.clear-btn:hover { background: #e8f0fe; }
+
+    /* ── Status badge ─────────────────────────────────────────────────── */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .3rem .8rem;
+      border-radius: 20px;
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    .status-badge.valid   { background: #e8f5e9; color: #1b5e20; }
+    .status-badge.invalid { background: #ffebee; color: #b71c1c; }
+    .status-badge.idle    { background: #e3f2fd; color: #0d47a1; }
+
+    /* ── Result table ─────────────────────────────────────────────────── */
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .9rem;
+      margin-top: .75rem;
+    }
+    .result-table th {
+      text-align: left;
+      padding: .4rem .75rem;
+      background: #e8eaf6;
+      color: #1a237e;
+      font-weight: 600;
+      width: 38%;
+    }
+    .result-table td {
+      padding: .4rem .75rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .result-table tr:last-child td { border-bottom: none; }
+    .result-table .pill {
+      display: inline-block;
+      padding: .1rem .5rem;
+      border-radius: 12px;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: .85rem;
+    }
+    .pill-sector  { background: #003776; color: #fff; }
+    .pill-year    { background: #1565c0; color: #fff; }
+    .pill-doctype { background: #6a1b9a; color: #fff; }
+    .pill-number  { background: #1b5e20; color: #fff; }
+    .pill-suffix  { background: #e65100; color: #fff; }
+
+    /* ── Sector/type reference table ──────────────────────────────────── */
+    .ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .5rem;
+      font-size: .82rem;
+    }
+    .ref-item {
+      background: #f8f9ff;
+      border: 1px solid #dde;
+      border-radius: 6px;
+      padding: .4rem .6rem;
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+    }
+    .ref-item .code {
+      font-family: monospace;
+      font-weight: 700;
+      color: #003776;
+      min-width: 2rem;
+    }
+    .ref-item .desc { color: #444; }
+
+    /* ── Quick examples ───────────────────────────────────────────────── */
+    .examples { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .example-chip {
+      font-family: monospace;
+      font-size: .85rem;
+      padding: .25rem .65rem;
+      border-radius: 4px;
+      background: #e8eaf6;
+      color: #1a237e;
+      cursor: pointer;
+      border: 1px solid #9fa8da;
+      transition: background .15s;
+    }
+    .example-chip:hover { background: #c5cae9; }
+
+    /* ── Legend bar ───────────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      font-size: .78rem;
+      margin-top: .75rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+
+    /* ── Empty state ──────────────────────────────────────────────────── */
+    .empty-display {
+      color: #90a4ae;
+      font-style: italic;
+      font-size: .9rem;
+      padding: .5rem 0;
+    }
+
+    /* ── Error message ────────────────────────────────────────────────── */
+    .error-msg {
+      background: #ffebee;
+      color: #c62828;
+      border-radius: 6px;
+      padding: .5rem .75rem;
+      font-size: .88rem;
+      margin-top: .5rem;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: .75rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>CELEX Number Validator &amp; Composer</h1>
+    <p>EUR-Lex document identifier decoder — based on the official EUR-Lex CELEX specification</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Validator card ─────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Validate &amp; Parse</h2>
+
+    <div class="input-row">
+      <input type="text" id="celexInput" placeholder="e.g. 32006L0112" autocomplete="off"
+             spellcheck="false" maxlength="40" />
+      <button onclick="validate()">Validate</button>
+      <button class="clear-btn" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="examples" style="margin-top:.75rem">
+      <strong style="font-size:.8rem;color:#555;align-self:center">Try:</strong>
+      <span class="example-chip" onclick="tryExample(this)">32006L0112</span>
+      <span class="example-chip" onclick="tryExample(this)">32023R2854</span>
+      <span class="example-chip" onclick="tryExample(this)">32016R0679</span>
+      <span class="example-chip" onclick="tryExample(this)">62019CJ0001</span>
+      <span class="example-chip" onclick="tryExample(this)">52023PC0206</span>
+      <span class="example-chip" onclick="tryExample(this)">12002E/TXT</span>
+      <span class="example-chip" onclick="tryExample(this)">22013A0907(01)</span>
+      <span class="example-chip" onclick="tryExample(this)">92020WQ000123</span>
+    </div>
+
+    <div id="statusArea" style="margin-top:1rem"></div>
+    <div id="errorArea"></div>
+
+    <!-- Visual breakdown -->
+    <div id="visualArea" style="margin-top:1rem"></div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#003776"></div><span>Sector</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#1565c0"></div><span>Year</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#6a1b9a"></div><span>Document type</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#1b5e20"></div><span>Number</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#e65100"></div><span>Suffix</span></div>
+    </div>
+
+    <!-- Details table -->
+    <div id="detailsArea"></div>
+  </div>
+
+  <!-- ── Sector reference card ──────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Sector Codes</h2>
+    <div class="ref-grid" id="sectorGrid">
+      <div class="empty-display">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Document type reference card ──────────────────────────────────── -->
+  <div class="card">
+    <h2>Document Type Codes</h2>
+    <label style="font-size:.85rem;color:#555;margin-bottom:.5rem;display:block">
+      Filter by sector:
+      <select id="sectorFilter" onchange="loadDocTypes()" style="margin-left:.4rem;padding:.2rem .4rem;border-radius:4px;border:1px solid #ccc">
+        <option value="">All</option>
+      </select>
+    </label>
+    <div class="ref-grid" id="docTypeGrid">
+      <div class="empty-display">Loading…</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Data source: <a href="https://eur-lex.europa.eu/content/help/eurlex-content/celex-number.html"
+    target="_blank" rel="noopener">EUR-Lex CELEX documentation</a>
+</footer>
+
+<script>
+  // ── Configuration ──────────────────────────────────────────────────────────
+  const API_BASE = '/api';
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
+  function el(id) { return document.getElementById(id); }
+
+  function segment(value, label, cssClass) {
+    return `<div class="celex-segment ${cssClass}">
+      <div class="seg-value">${value}</div>
+      <div class="seg-label">${label}</div>
+    </div>`;
+  }
+
+  function pill(value, cls) {
+    return value ? `<span class="pill ${cls}">${value}</span>` : '–';
+  }
+
+  // ── Validate ───────────────────────────────────────────────────────────────
+  async function validate() {
+    const raw = el('celexInput').value.trim();
+    if (!raw) { clearAll(); return; }
+
+    el('statusArea').innerHTML = '<span class="status-badge idle">⏳ Checking…</span>';
+    el('errorArea').innerHTML  = '';
+    el('visualArea').innerHTML = '';
+    el('detailsArea').innerHTML = '';
+
+    try {
+      const res  = await fetch(`${API_BASE}/validate?celex=${encodeURIComponent(raw)}`);
+      const data = await res.json();
+
+      if (data.valid) {
+        el('statusArea').innerHTML =
+          `<span class="status-badge valid">✔ Valid CELEX number</span>`;
+        renderVisual(data);
+        renderDetails(data);
+      } else {
+        el('statusArea').innerHTML =
+          `<span class="status-badge invalid">✘ Invalid</span>`;
+        el('errorArea').innerHTML =
+          `<div class="error-msg">${data.error}</div>`;
+      }
+    } catch (err) {
+      el('statusArea').innerHTML =
+        `<span class="status-badge invalid">✘ Connection error</span>`;
+      el('errorArea').innerHTML =
+        `<div class="error-msg">Could not reach the backend at <code>${API_BASE}</code>. Is Quarkus running?<br><small>${err}</small></div>`;
+    }
+  }
+
+  // ── Visual breakdown ───────────────────────────────────────────────────────
+  function renderVisual(data) {
+    let html = '<div class="celex-display">';
+    html += segment(data.sector,              'Sector',        'seg-sector');
+    if (data.year)
+      html += segment(data.year,              'Year',          'seg-year');
+    if (data.documentTypeCode)
+      html += segment(data.documentTypeCode,  'Doc type',      'seg-doctype');
+    if (data.number)
+      html += segment(data.number,            'Number',        'seg-number');
+    if (data.suffix)
+      html += segment(data.suffix,            'Suffix',        'seg-suffix');
+    html += '</div>';
+    el('visualArea').innerHTML = html;
+  }
+
+  // ── Details table ──────────────────────────────────────────────────────────
+  function renderDetails(data) {
+    const rows = [
+      ['Input',             `<code>${data.input}</code>`],
+      ['Sector',            `${pill(data.sector, 'pill-sector')} ${data.sectorDescription || ''}`],
+      ['Year',              data.year ? pill(data.year, 'pill-year') : '–'],
+      ['Document type',     data.documentTypeCode
+                              ? `${pill(data.documentTypeCode, 'pill-doctype')} ${data.documentTypeDescription || ''}`
+                              : '–'],
+      ['Number',            data.number ? pill(data.number, 'pill-number') : '–'],
+      ['Suffix',            data.suffix ? pill(data.suffix, 'pill-suffix') : '–'],
+      ['Description',       `<em>${data.humanDescription || ''}</em>`],
+    ];
+
+    el('detailsArea').innerHTML = `
+      <table class="result-table" style="margin-top:1rem">
+        ${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}
+      </table>`;
+  }
+
+  // ── Clear ──────────────────────────────────────────────────────────────────
+  function clearAll() {
+    el('celexInput').value      = '';
+    el('statusArea').innerHTML  = '';
+    el('errorArea').innerHTML   = '';
+    el('visualArea').innerHTML  = '';
+    el('detailsArea').innerHTML = '';
+  }
+
+  // ── Quick examples ─────────────────────────────────────────────────────────
+  function tryExample(chip) {
+    el('celexInput').value = chip.textContent;
+    validate();
+  }
+
+  // ── Enter key support ──────────────────────────────────────────────────────
+  el('celexInput').addEventListener('keydown', e => { if (e.key === 'Enter') validate(); });
+
+  // ── Live-validate on input (debounced) ─────────────────────────────────────
+  let debounceTimer;
+  el('celexInput').addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      if (el('celexInput').value.trim().length >= 5) validate();
+    }, 450);
+  });
+
+  // ── Load reference data ────────────────────────────────────────────────────
+  async function loadSectors() {
+    try {
+      const data = await (await fetch(`${API_BASE}/sectors`)).json();
+      el('sectorGrid').innerHTML = data.map(s =>
+        `<div class="ref-item">
+          <span class="code">${s.code}</span>
+          <span class="desc">${s.description}</span>
+        </div>`
+      ).join('');
+
+      // Populate filter dropdown
+      const sel = el('sectorFilter');
+      data.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.code;
+        opt.textContent = `${s.code} – ${s.description}`;
+        sel.appendChild(opt);
+      });
+    } catch {
+      el('sectorGrid').innerHTML =
+        '<div class="empty-display">Backend not available — start Quarkus to load reference data.</div>';
+    }
+  }
+
+  async function loadDocTypes() {
+    const sector = el('sectorFilter').value;
+    const url = sector ? `${API_BASE}/document-types?sector=${sector}` : `${API_BASE}/document-types`;
+    try {
+      const data = await (await fetch(url)).json();
+      el('docTypeGrid').innerHTML = data.length === 0
+        ? '<div class="empty-display">No document types for this sector.</div>'
+        : data.map(d =>
+            `<div class="ref-item">
+              <span class="code">${d.code}</span>
+              <span class="desc">${d.description} <em style="color:#999;font-size:.75rem">(${[...d.sectors].join(', ')})</em></span>
+            </div>`
+          ).join('');
+    } catch {
+      el('docTypeGrid').innerHTML =
+        '<div class="empty-display">Backend not available.</div>';
+    }
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  loadSectors();
+  loadDocTypes();
+</script>
+</body>
+</html>
