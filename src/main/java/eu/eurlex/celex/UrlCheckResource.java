@@ -1,5 +1,7 @@
 package eu.eurlex.celex;
 
+import io.smallrye.common.annotation.Blocking;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -53,7 +55,11 @@ public class UrlCheckResource {
             .connectTimeout(TIMEOUT)
             .build();
 
+    @Inject
+    CelexParser parser;
+
     @GET
+    @Blocking
     public Map<String, Object> checkUrl(@QueryParam("url") String url,
                                         @QueryParam("celex") String celex) {
         // Prefer the explicit celex param; fall back to extracting it from the url value
@@ -63,6 +69,13 @@ public class UrlCheckResource {
         }
         if (celex == null || celex.isBlank()) {
             return Map.of("found", false, "error", "No CELEX number provided");
+        }
+
+        // Reject anything that isn't a syntactically valid CELEX number before it is
+        // interpolated into the SPARQL query string sent to CELLAR, so arbitrary input
+        // can never alter the query shape.
+        if (parser.parse(celex).isEmpty()) {
+            return Map.of("found", false, "error", "'" + celex + "' is not a recognised CELEX number");
         }
 
         return querycellar(celex);

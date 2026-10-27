@@ -501,11 +501,18 @@
   }
 
   // ── EUR-Lex existence check ────────────────────────────────────────────────
+  const CHECK_URL_TIMEOUT_MS = 10000;
+
   async function checkEurLexExists(url, celex) {
     const badge = el('existBadge');
     if (!badge) return;
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), CHECK_URL_TIMEOUT_MS);
     try {
-      const res  = await fetch(`${API_BASE}/check-url?url=${encodeURIComponent(url)}&celex=${encodeURIComponent(celex)}`);
+      const res  = await fetch(
+        `${API_BASE}/check-url?url=${encodeURIComponent(url)}&celex=${encodeURIComponent(celex)}`,
+        { signal: controller.signal }
+      );
       const data = await res.json();
       if (data.error && !('found' in data)) {
         badge.className = 'exist-badge error';
@@ -517,9 +524,11 @@
         badge.className = 'exist-badge notfound';
         badge.textContent = '✘ Not found in EUR-Lex';
       }
-    } catch {
+    } catch (e) {
       badge.className = 'exist-badge error';
-      badge.textContent = '⚠ Could not check';
+      badge.textContent = e.name === 'AbortError' ? '⚠ Check timed out' : '⚠ Could not check';
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
