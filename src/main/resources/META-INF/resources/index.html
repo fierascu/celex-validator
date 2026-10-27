@@ -283,6 +283,22 @@
     }
     .eurlex-btn:hover { background: #1565c0; }
 
+    /* ── EUR-Lex existence check badge ───────────────────────────────────── */
+    .exist-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .3rem .8rem;
+      border-radius: 20px;
+      font-size: .85rem;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .exist-badge.checking { background: #e3f2fd; color: #0d47a1; }
+    .exist-badge.found    { background: #e8f5e9; color: #1b5e20; }
+    .exist-badge.notfound { background: #ffebee; color: #b71c1c; }
+    .exist-badge.error    { background: #fff8e1; color: #f57f17; }
+
     /* ── EUR-Lex link in table ────────────────────────────────────────────── */
     .eur-link {
       color: #003776;
@@ -380,6 +396,9 @@
 <footer>
   Data source: <a href="https://eur-lex.europa.eu/content/help/eurlex-content/celex-number.html"
     target="_blank" rel="noopener">EUR-Lex CELEX documentation</a>
+  &nbsp;·&nbsp;
+  <a href="https://eur-lex.europa.eu/content/tools/HowCelexNumbersAreComposed.pdf"
+    target="_blank" rel="noopener">How CELEX numbers are composed (PDF)</a>
 </footer>
 
 <script>
@@ -420,10 +439,14 @@
                Open in EUR-Lex ↗
              </a>`
           : '';
+        const existSpan = data.eurLexUrl
+          ? `&nbsp;<span class="exist-badge checking" id="existBadge">⏳ Checking EUR-Lex…</span>`
+          : '';
         el('statusArea').innerHTML =
-          `<span class="status-badge valid">✔ Valid CELEX number</span>${linkBtn}`;
+          `<span class="status-badge valid">✔ Valid CELEX number</span>${linkBtn}${existSpan}`;
         renderVisual(data);
         renderDetails(data);
+        if (data.eurLexUrl) checkEurLexExists(data.eurLexUrl, data.input);
       } else {
         el('statusArea').innerHTML =
           `<span class="status-badge invalid">✘ Invalid</span>`;
@@ -475,6 +498,29 @@
       <table class="result-table" style="margin-top:1rem">
         ${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}
       </table>`;
+  }
+
+  // ── EUR-Lex existence check ────────────────────────────────────────────────
+  async function checkEurLexExists(url, celex) {
+    const badge = el('existBadge');
+    if (!badge) return;
+    try {
+      const res  = await fetch(`${API_BASE}/check-url?url=${encodeURIComponent(url)}&celex=${encodeURIComponent(celex)}`);
+      const data = await res.json();
+      if (data.error && !('found' in data)) {
+        badge.className = 'exist-badge error';
+        badge.textContent = '⚠ Could not check';
+      } else if (data.found) {
+        badge.className = 'exist-badge found';
+        badge.textContent = '✔ Found in EUR-Lex';
+      } else {
+        badge.className = 'exist-badge notfound';
+        badge.textContent = '✘ Not found in EUR-Lex';
+      }
+    } catch {
+      badge.className = 'exist-badge error';
+      badge.textContent = '⚠ Could not check';
+    }
   }
 
   // ── Clear ──────────────────────────────────────────────────────────────────
