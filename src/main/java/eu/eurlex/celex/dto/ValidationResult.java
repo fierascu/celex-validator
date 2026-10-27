@@ -16,10 +16,11 @@ public record ValidationResult(
         String number,
         String suffix,
         String humanDescription,
+        String eurLexUrl,
         String error
 ) {
-    /** Build a successful result from parsed components. */
-    public static ValidationResult of(CelexComponents c) {
+    /** Build a successful result from parsed components and its EUR-Lex URL. */
+    public static ValidationResult of(CelexComponents c, String eurLexUrl) {
         return new ValidationResult(
                 true,
                 c.raw(),
@@ -31,12 +32,13 @@ public record ValidationResult(
                 c.number(),
                 c.suffix(),
                 c.description(),
+                eurLexUrl,
                 null
         );
     }
 
     /** Build an invalid result with an error message. */
     public static ValidationResult invalid(String input, String error) {
-        return new ValidationResult(false, input, null, null, null, null, null, null, null, null, error);
+        return new ValidationResult(false, input, null, null, null, null, null, null, null, null, null, error);
     }
 }

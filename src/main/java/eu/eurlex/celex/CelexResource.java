@@ -22,6 +22,9 @@ public class CelexResource {
     @Inject
     CelexParser parser;
 
+    @Inject
+    EliUrlBuilder urlBuilder;
+
     @GET
     @Path("/validate")
     public ValidationResult validate(@QueryParam("celex") String celex) {
@@ -29,7 +32,7 @@ public class CelexResource {
             return ValidationResult.invalid(celex, "No CELEX number provided");
         }
         return parser.parse(celex)
-                .map(ValidationResult::of)
+                .map(c -> ValidationResult.of(c, urlBuilder.build(c)))
                 .orElseGet(() -> ValidationResult.invalid(celex,
                         "'" + celex + "' is not a recognised CELEX number"));
     }

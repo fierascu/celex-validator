@@ -267,6 +267,30 @@
       margin-top: .5rem;
     }
 
+    /* ── EUR-Lex link button ──────────────────────────────────────────────── */
+    .eurlex-btn {
+      display: inline-flex;
+      align-items: center;
+      padding: .3rem .9rem;
+      background: #003776;
+      color: #fff;
+      border-radius: 20px;
+      font-size: .85rem;
+      font-weight: 600;
+      text-decoration: none;
+      vertical-align: middle;
+      transition: background .2s;
+    }
+    .eurlex-btn:hover { background: #1565c0; }
+
+    /* ── EUR-Lex link in table ────────────────────────────────────────────── */
+    .eur-link {
+      color: #003776;
+      word-break: break-all;
+      font-size: .82rem;
+    }
+    .eur-link:hover { text-decoration: underline; }
+
     /* ── Footer ───────────────────────────────────────────────────────── */
     footer {
       text-align: center;
@@ -360,7 +384,6 @@
 
 <script>
   // ── Configuration ──────────────────────────────────────────────────────────
-  // When opened standalone (file://), change this to 'http://localhost:8080/api'
   const API_BASE = '/api';
 
   // ── Utilities ──────────────────────────────────────────────────────────────
@@ -392,8 +415,13 @@
       const data = await res.json();
 
       if (data.valid) {
+        const linkBtn = data.eurLexUrl
+          ? `&nbsp;<a class="eurlex-btn" href="${data.eurLexUrl}" target="_blank" rel="noopener">
+               Open in EUR-Lex ↗
+             </a>`
+          : '';
         el('statusArea').innerHTML =
-          `<span class="status-badge valid">✔ Valid CELEX number</span>`;
+          `<span class="status-badge valid">✔ Valid CELEX number</span>${linkBtn}`;
         renderVisual(data);
         renderDetails(data);
       } else {
@@ -438,6 +466,9 @@
       ['Number',            data.number ? pill(data.number, 'pill-number') : '–'],
       ['Suffix',            data.suffix ? pill(data.suffix, 'pill-suffix') : '–'],
       ['Description',       `<em>${data.humanDescription || ''}</em>`],
+      ['EUR-Lex link',      data.eurLexUrl
+                              ? `<a href="${data.eurLexUrl}" target="_blank" rel="noopener" class="eur-link">${data.eurLexUrl}</a>`
+                              : '–'],
     ];
 
     el('detailsArea').innerHTML = `
