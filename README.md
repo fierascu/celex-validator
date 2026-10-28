@@ -3,6 +3,12 @@
 A [Quarkus](https://quarkus.io/) REST service that validates and parses [EUR-Lex CELEX numbers](https://eur-lex.europa.eu/content/help/eurlex-content/celex-number.html).  
 It exposes a small JSON API and a built-in browser UI for interactive validation.
 
+- Clean separation of parsing / URL-building / HTTP layer / UI.
+- Sector-by-sector parsing mirrors the real EUR-Lex spec reasonably faithfully (treaties, external agreements, legislation, preparatory acts, case law, national implementation, parliamentary questions, OJ C/EFTA).
+- Good use of Optional, immutable records, enums with lookup helpers.
+- Parameterized tests covering valid/invalid edge cases.
+- Thoughtful latest feature: warns when a legislation CELEX's year is current/future (likely not yet published) and cross-checks existence via CELLAR's public SPARQL endpoint rather than scraping EUR-Lex HTML (which is WAF-protected) — a pragmatic workaround, documented in the class Javadoc.
+
 ## Requirements
 
 - Java 21+
