@@ -150,10 +150,34 @@ class CelexParserTest {
             "99999XX9999",
             "3ABCDL0001",          // non-year after sector
             "32006Z9999",          // Z is not a valid legislation type
+            // Injection attempts: metacharacters must never be accepted
+            "72006<img src=x onerror=alert(1)>",
+            "C2006<script>",
+            "72006\"onmouseover=\"x",
+            "72006> } UNION { ?s ?p ?o",
+            "72006ab.c -x",
+            "72006abc\ndef",
+            "1<b>/TXT",
+            "32006L0112&x=1",
     })
     void invalidInputs(String celex) {
         Optional<CelexComponents> result = parser.parse(celex);
         assertFalse(result.isPresent(), "Expected invalid: '" + celex + "'");
+    }
+
+    @Test
+    @DisplayName("National implementation measure with underscore is valid")
+    void sector7WithUnderscore() {
+        Optional<CelexComponents> result = parser.parse("72014L0065DEU_202001398");
+        assertTrue(result.isPresent());
+        assertEquals("7", result.get().sector().code);
+        assertEquals("L0065DEU_202001398", result.get().number());
+    }
+
+    @Test
+    @DisplayName("Overly long input is rejected")
+    void tooLongInput() {
+        assertFalse(parser.parse("32006L" + "1".repeat(100)).isPresent());
     }
 
     @Test

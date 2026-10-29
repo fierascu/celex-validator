@@ -1,5 +1,7 @@
 package eu.eurlex.celex;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -8,11 +10,18 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import io.quarkus.cache.CacheResult;
+import io.smallrye.faulttolerance.api.RateLimit;
+import io.smallrye.faulttolerance.api.RateLimitException;
+import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
 import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.faulttolerance.Timeout;
+import org.eclipse.microprofile.faulttolerance.exceptions.BulkheadException;
+import org.eclipse.microprofile.faulttolerance.exceptions.CircuitBreakerOpenException;
 import org.jboss.logging.Logger;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -20,6 +29,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -58,10 +68,10 @@ public class UrlCheckResource {
 
     /**
      * Allowlist for characters permitted in a CELEX number that is interpolated
-     * into the SPARQL query. Digits, uppercase letters, forward slash, and
+     * into the SPARQL query. Digits, letters, underscore, forward slash, and
      * parentheses cover every valid CELEX format including suffixes.
      */
-    private static final Pattern CELEX_SAFE = Pattern.compile("[A-Z0-9/(). -]{1,64}", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CELEX_SAFE = Pattern.compile("[A-Z0-9_/()]{1,64}", Pattern.CASE_INSENSITIVE);
 
     private static final int MAX_INPUT_LENGTH = 256;
 
@@ -103,6 +113,9 @@ public class UrlCheckResource {
 
         try {
             return cellarClient.query(celex);
+        } catch (RateLimitException | BulkheadException e) {
+            LOG.warnf("CELLAR check rejected (overloaded) for celex=%s", celex);
+            return Map.of("found", false, "error", "Too many requests, please try again shortly");
         } catch (Exception e) {
             LOG.warnf("CELLAR check unavailable for celex=%s", celex);
             return Map.of("found", false, "error", "CELLAR service is currently unavailable");
@@ -130,20 +143,34 @@ public class UrlCheckResource {
 
     /**
      * CDI bean that owns the {@link HttpClient} and wraps the outbound SPARQL
-     * call with fault-tolerance: 10 s timeout, 2 retries, circuit breaker.
+     * call with a result cache and fault tolerance.
+     *
+     * <p>Worst case is two 3 s attempts plus a 200 ms delay, which stays inside
+     * the frontend's 10 s timeout. The rate limit and bulkhead cap how much load
+     * this service can put on CELLAR (and how many worker threads it can tie up);
+     * per-client limits belong at the reverse proxy. Cache hits bypass all of it.
      */
     @ApplicationScoped
     static class CellarClient {
 
         private static final Logger LOG = Logger.getLogger(CellarClient.class);
 
+        private static final Duration ATTEMPT_TIMEOUT = Duration.ofSeconds(3);
+
         private final HttpClient http = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(ATTEMPT_TIMEOUT)
                 .build();
 
-        @Timeout(value = 10_000)          // ms — overall method timeout
-        @Retry(maxRetries = 2, delay = 300)
+        @Inject
+        ObjectMapper mapper;
+
+        @CacheResult(cacheName = "cellar-exists")   // failures are not cached
+        @RateLimit(value = 30, window = 1, windowUnit = ChronoUnit.SECONDS)
+        @Bulkhead(10)
+        @Retry(maxRetries = 1, delay = 200,
+               abortOn = {RateLimitException.class, BulkheadException.class, CircuitBreakerOpenException.class})
+        @Timeout(value = 3_000)           // ms — per attempt
         @CircuitBreaker(requestVolumeThreshold = 5, failureRatio = 0.6, delay = 15_000)
         Map<String, Object> query(String celex) {
             String sparql = "ASK { ?s <http://www.w3.org/2002/07/owl#sameAs>"
@@ -154,23 +181,34 @@ public class UrlCheckResource {
             try {
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(uri)
-                        .timeout(Duration.ofSeconds(10))
+                        .timeout(ATTEMPT_TIMEOUT)
                         .header("Accept", "application/sparql-results+json")
                         .GET()
                         .build();
 
                 HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-
-                // Response body: { "head": { "link": [] }, "boolean": true }
-                String body = response.body();
-                boolean found = body.contains("\"boolean\": true")
-                             || body.contains("\"boolean\":true");
-                return Map.of("found", found);
+                return Map.of("found", parseAskResponse(mapper, response.statusCode(), response.body()));
 
             } catch (Exception e) {
                 LOG.errorf(e, "CELLAR SPARQL request failed for celex=%s", celex);
                 throw new RuntimeException("CELLAR request failed", e);
             }
+        }
+
+        /**
+         * Interprets a SPARQL ASK response, e.g. {@code { "head": {}, "boolean": true }}.
+         * A non-2xx status or a body without a boolean result is an error rather than
+         * "not found", so outages surface to the client and count towards the circuit breaker.
+         */
+        static boolean parseAskResponse(ObjectMapper mapper, int status, String body) throws IOException {
+            if (status < 200 || status >= 300) {
+                throw new IOException("CELLAR returned HTTP " + status);
+            }
+            JsonNode result = mapper.readTree(body).get("boolean");
+            if (result == null || !result.isBoolean()) {
+                throw new IOException("CELLAR response has no boolean result");
+            }
+            return result.booleanValue();
         }
     }
 }

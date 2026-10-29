@@ -3,6 +3,8 @@ package eu.eurlex.celex;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -47,6 +49,52 @@ class CelexResourceTest {
                 .statusCode(200)
                 .body("valid", is(false))
                 .body("error", not(emptyOrNullString()));
+    }
+
+    @Test
+    @DisplayName("HTML in a CELEX number is rejected, never returned as valid")
+    void htmlInjectionIsInvalid() {
+        given()
+                .queryParam("celex", "72006<img src=x onerror=alert(1)>")
+                .when().get("/api/validate")
+                .then()
+                .statusCode(200)
+                .body("valid", is(false))
+                .body("eurLexUrl", nullValue());
+    }
+
+    @Test
+    @DisplayName("SPARQL metacharacters never reach CELLAR")
+    void sparqlInjectionIsRejected() {
+        given()
+                .queryParam("celex", "72006> } UNION { ?s ?p ?o")
+                .when().get("/api/check-url")
+                .then()
+                .statusCode(200)
+                .body("found", is(false))
+                .body("error", not(emptyOrNullString()));
+    }
+
+    @ParameterizedTest(name = "security headers on {0}")
+    @ValueSource(strings = {"/", "/app.js", "/api/sectors"})
+    void securityHeadersPresent(String path) {
+        given()
+                .when().get(path)
+                .then()
+                .statusCode(200)
+                .header("Content-Security-Policy", containsString("script-src 'self'"))
+                .header("Content-Security-Policy", containsString("frame-ancestors 'none'"))
+                .header("X-Content-Type-Options", "nosniff")
+                .header("X-Frame-Options", "DENY")
+                .header("Referrer-Policy", "no-referrer");
+    }
+
+    @Test
+    @DisplayName("Page contains no inline script or inline event handlers")
+    void pageHasNoInlineScript() {
+        String html = given().when().get("/").then().statusCode(200).extract().asString();
+        org.junit.jupiter.api.Assertions.assertFalse(html.matches("(?s).*<script>.*"), "inline <script> block");
+        org.junit.jupiter.api.Assertions.assertFalse(html.matches("(?s).*\\son[a-z]+=\".*"), "inline event handler");
     }
 
     @Test

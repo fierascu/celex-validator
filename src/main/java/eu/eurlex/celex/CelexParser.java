@@ -44,6 +44,11 @@ public class CelexParser {
     private static final Pattern SUFFIX_PATTERN =
             Pattern.compile("(/[A-Z]{2,4}|R?\\(\\d{2}\\))$", Pattern.CASE_INSENSITIVE);
 
+    // Body (everything before the suffix): sector + alphanumerics, plus '_' used by
+    // national implementation measures (e.g. 72014L0065DEU_202001398). Rejecting every
+    // other character here keeps HTML, IRI and URL metacharacters out of all outputs.
+    private static final Pattern BODY_PATTERN = Pattern.compile("^[0-9CE][0-9A-Z_]{1,40}$", Pattern.CASE_INSENSITIVE);
+
     // Year: 4 digits, reasonable range
     private static final Pattern YEAR_PATTERN = Pattern.compile("^(1[0-9]{3}|2[0-9]{3})$");
 
@@ -80,7 +85,7 @@ public class CelexParser {
             body = raw.substring(0, sm.start());
         }
 
-        if (body.isEmpty()) return Optional.empty();
+        if (!BODY_PATTERN.matcher(body).matches()) return Optional.empty();
 
         String sectorCode = String.valueOf(body.charAt(0)).toUpperCase();
         Sector sector = Sector.fromCode(sectorCode);

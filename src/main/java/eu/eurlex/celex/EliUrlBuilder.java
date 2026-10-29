@@ -4,7 +4,10 @@ import eu.eurlex.celex.model.CelexComponents;
 import eu.eurlex.celex.model.Sector;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Builds the EUR-Lex URL for a parsed CELEX number.
@@ -21,6 +24,8 @@ public class EliUrlBuilder {
 
     private static final String ELI_BASE  = "https://eur-lex.europa.eu/eli";
     private static final String CELEX_URL = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:";
+
+    private static final Pattern SAFE_CELEX = Pattern.compile("[A-Za-z0-9_/()]+");
 
     /**
      * ELI type slugs for secondary/complementary legislation document type codes.
@@ -80,7 +85,9 @@ public class EliUrlBuilder {
     }
 
     private static String encode(String raw) {
-        // CELEX numbers are safe ASCII — no percent-encoding needed
-        return raw;
+        // Valid CELEX numbers only contain these characters, which are safe in a query
+        // string; anything else is percent-encoded as defence in depth.
+        if (SAFE_CELEX.matcher(raw).matches()) return raw;
+        return URLEncoder.encode(raw, StandardCharsets.UTF_8);
     }
 }
