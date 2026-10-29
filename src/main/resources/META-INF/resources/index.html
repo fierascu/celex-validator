@@ -176,26 +176,26 @@
     .celex-display {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 8px;
       align-items: stretch;
       justify-content: center;
-      min-height: 72px;
+      min-height: 96px;
     }
     .celex-segment {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      border-radius: 6px;
+      align-items: stretch;
+      border-radius: 12px;
       overflow: hidden;
-      min-width: 56px;
+      min-width: 80px;
       flex: 0 0 auto;
-      box-shadow: 0 1px 4px rgba(0,0,0,.15);
+      box-shadow: 0 2px 6px rgba(0,0,0,.18);
     }
     .celex-segment .seg-value {
       font-family: 'Courier New', monospace;
-      font-size: 2.25rem;
+      font-size: 2.85rem;
       font-weight: 700;
-      padding: .35rem .7rem;
+      padding: .5rem 1rem;
       color: #fff;
       text-align: center;
       flex: 1;
@@ -205,22 +205,22 @@
       white-space: nowrap;
     }
     .celex-segment .seg-label {
-      font-size: .75rem;
+      font-size: .85rem;
       text-transform: uppercase;
       letter-spacing: .06em;
-      padding: 3px 5px;
+      padding: 5px 10px;
       background: rgba(0,0,0,.28);
       color: #fff;
-      width: 100%;
       text-align: center;
+      white-space: nowrap;
     }
 
-    /* Segment colours */
-    .seg-sector  .seg-value { background: #003776; }
-    .seg-year    .seg-value { background: #1565c0; }
-    .seg-doctype .seg-value { background: #6a1b9a; }
-    .seg-number  .seg-value { background: #1b5e20; }
-    .seg-suffix  .seg-value { background: #e65100; }
+    /* Segment colours: on the segment so the label strip darkens the same hue */
+    .seg-sector  { background: #003776; }
+    .seg-year    { background: #1565c0; }
+    .seg-doctype { background: #6a1b9a; }
+    .seg-number  { background: #1b5e20; }
+    .seg-suffix  { background: #e65100; }
 
     /* ── Status / result areas ──────────────────────────────────────────── */
     #statusArea {
