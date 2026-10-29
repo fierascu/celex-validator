@@ -34,6 +34,9 @@ public class CelexResource {
         if (celex == null || celex.isBlank()) {
             return ValidationResult.invalid(celex, "No CELEX number provided");
         }
+        if (celex.length() > 64) {
+            return ValidationResult.invalid(celex, "Input too long");
+        }
         return parser.parse(celex)
                 .map(c -> ValidationResult.of(c, urlBuilder.build(c), publishingWarning(c)))
                 .orElseGet(() -> ValidationResult.invalid(celex,

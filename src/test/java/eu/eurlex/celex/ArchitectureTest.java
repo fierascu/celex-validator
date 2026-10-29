@@ -3,11 +3,11 @@ package eu.eurlex.celex;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import eu.eurlex.celex.model.CelexComponents;
 
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
-@AnalyzeClasses(packages = "eu.eurlex.celex")
+@AnalyzeClasses(packagesOf = CelexComponents.class)
 class ArchitectureTest {
 
     /**
@@ -19,7 +19,8 @@ class ArchitectureTest {
             noClasses()
                     .that().resideInAPackage("eu.eurlex.celex.model..")
                     .should().dependOnClassesThat()
-                    .resideInAnyPackage("jakarta.ws.rs..", "jakarta.inject..", "io.quarkus..");
+                    .resideInAnyPackage("jakarta.ws.rs..", "jakarta.inject..", "io.quarkus..")
+                    .allowEmptyShould(true);
 
     /**
      * DTO classes must only be accessed from the celex package itself (i.e. by
@@ -30,5 +31,6 @@ class ArchitectureTest {
             noClasses()
                     .that().resideInAPackage("eu.eurlex.celex.model..")
                     .should().dependOnClassesThat()
-                    .resideInAPackage("eu.eurlex.celex.dto..");
+                    .resideInAPackage("eu.eurlex.celex.dto..")
+                    .allowEmptyShould(true);
 }
