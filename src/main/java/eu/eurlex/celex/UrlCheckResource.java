@@ -112,7 +112,10 @@ public class UrlCheckResource {
         }
 
         try {
-            return cellarClient.query(celex);
+            Map<String, Object> result = cellarClient.query(celex);
+            boolean found = result != null && Boolean.TRUE.equals(result.get("found"));
+            LOG.debugf("check-url: celex=%s found=%b", celex, found);
+            return result;
         } catch (RateLimitException | BulkheadException e) {
             LOG.warnf("CELLAR check rejected (overloaded) for celex=%s", celex);
             return Map.of("found", false, "error", "Too many requests, please try again shortly");

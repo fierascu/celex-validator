@@ -5,6 +5,7 @@ import eu.eurlex.celex.model.Sector;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import org.jboss.logging.Logger;
 
 import java.time.Year;
 
@@ -22,6 +23,8 @@ import java.time.Year;
 @Produces(MediaType.APPLICATION_JSON)
 public class CelexResource {
 
+    private static final Logger LOG = Logger.getLogger(CelexResource.class);
+
     @Inject
     CelexParser parser;
 
@@ -32,15 +35,30 @@ public class CelexResource {
     @Path("/validate")
     public ValidationResult validate(@QueryParam("celex") String celex) {
         if (celex == null || celex.isBlank()) {
+            LOG.debug("validate: empty or missing celex parameter");
             return ValidationResult.invalid(celex, "No CELEX number provided");
         }
         if (celex.length() > 64) {
+            LOG.debugf("validate: input too long (%d chars)", celex.length());
             return ValidationResult.invalid(celex, "Input too long");
         }
         return parser.parse(celex)
-                .map(c -> ValidationResult.of(c, urlBuilder.build(c), publishingWarning(c)))
-                .orElseGet(() -> ValidationResult.invalid(celex,
-                        "'" + celex + "' is not a recognised CELEX number"));
+                .map(c -> {
+                    String warning = publishingWarning(c);
+                    if (warning != null) {
+                        LOG.infof("validate: valid with warning celex=%s warning=%s", safe(c.raw()), warning);
+                    } else {
+                        LOG.debugf("validate: valid celex=%s sector=%s year=%s type=%s number=%s",
+                                safe(c.raw()), c.sector().code, c.year(),
+                                c.documentType() != null ? c.documentType().code : "-", c.number());
+                    }
+                    return ValidationResult.of(c, urlBuilder.build(c), warning);
+                })
+                .orElseGet(() -> {
+                    LOG.debugf("validate: invalid celex=%s", safe(celex));
+                    return ValidationResult.invalid(celex,
+                            "'" + celex + "' is not a recognised CELEX number");
+                });
     }
 
     /**
@@ -64,9 +82,20 @@ public class CelexResource {
         return null;
     }
 
+    /**
+     * Makes user-supplied input safe to log: truncates it and replaces control
+     * characters so a client cannot forge log lines with embedded CR/LF.
+     */
+    private static String safe(String s) {
+        if (s == null) return "null";
+        String t = s.length() > 64 ? s.substring(0, 64) + "…" : s;
+        return t.replaceAll("\\p{Cntrl}", "?");
+    }
+
     @GET
     @Path("/sectors")
     public Object sectors() {
+        LOG.debug("sectors: listing all sectors");
         return java.util.Arrays.stream(eu.eurlex.celex.model.Sector.values())
                 .map(s -> java.util.Map.of("code", s.code, "description", s.description))
                 .toList();
@@ -75,6 +104,11 @@ public class CelexResource {
     @GET
     @Path("/document-types")
     public Object documentTypes(@QueryParam("sector") String sector) {
+        if (sector != null && !sector.isBlank()) {
+            LOG.debugf("document-types: listing for sector=%s", safe(sector));
+        } else {
+            LOG.debug("document-types: listing all");
+        }
         var stream = java.util.Arrays.stream(eu.eurlex.celex.model.DocumentType.values());
         if (sector != null && !sector.isBlank()) {
             stream = stream.filter(dt -> dt.sectors.contains(sector.toUpperCase()));
