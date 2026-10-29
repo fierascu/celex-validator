@@ -1,6 +1,6 @@
-# fly.toml app configuration file generated for celex-validator on 2026-10-29T13:12:14Z
+# fly.toml app configuration file generated for celex-validator on 2026-10-29T16:14:20Z
 #
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+# See https://docs.fly.io/reference/configuration for information about how to use this file.
 #
 
 app = 'celex-validator'
@@ -12,24 +12,27 @@ primary_region = 'ams'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'suspend'
   auto_start_machines = true
-  min_machines_running = 0
-
-  [http_service.concurrency]
-    type = 'requests'
-    hard_limit = 200
-    soft_limit = 150
-
-  [[http_service.checks]]
-    interval = '30s'
-    timeout = '5s'
-    grace_period = '30s'
-    method = 'GET'
-    path = '/q/health/ready'
+  min_machines_running = 1
+  checks = [{ grace_period = '30s', interval = '30s', method = 'GET', path = '/q/health/ready', timeout = '5s' }]
+  concurrency = { hard_limit = 200, soft_limit = 150, type = 'requests' }
 
 [[vm]]
   memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 512
+
+[[vm]]
+  memory = '768mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 768
+  processes = ['app']
+  size = 'shared-cpu-1x'
+
+[[restart]]
+  policy = 'on-failure'
+  processes = ['app']
+  retries = 3
