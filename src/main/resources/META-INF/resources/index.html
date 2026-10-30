@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CELEX Number Validator &amp; Composer</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>
+      <rect width='32' height='32' rx='6' fill='%23003776'/>
+      <text x='16' y='23' font-family='Georgia,serif' font-size='20' font-weight='bold'
+            text-anchor='middle' fill='%23ffffff'>C</text>
+    </svg>" />
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 17px;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Screen-reader only ───────────────────────────────────────────── */
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ── Focus ring (global) ──────────────────────────────────────────── */
+    :focus-visible {
+      outline: 3px solid #1565c0;
+      outline-offset: 2px;
+    }
+
+    /* ── Page title ───────────────────────────────────────────────────── */
+    .page-title {
+      text-align: center;
+      padding: 2.5rem 1rem 0;
+    }
+    .page-title h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #003776;
+      letter-spacing: .02em;
+    }
+
+    /* ── Main layout ──────────────────────────────────────────────────── */
+    main {
+      max-width: 640px;
+      margin: 1.75rem auto 0;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ── Card / section ───────────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 3px 12px rgba(0,0,0,.10);
+      padding: 1.75rem;
+    }
+    /* ── Input label ──────────────────────────────────────────────────── */
+    .input-label {
+      display: block;
+      font-size: .85rem;
+      font-weight: 600;
+      color: #003776;
+      margin-bottom: .5rem;
+      letter-spacing: .03em;
+    }
+
+    /* ── Input row ────────────────────────────────────────────────────── */
+    .input-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .6rem;
+      align-items: stretch;
+    }
+    .input-row input[type="text"] {
+      flex: 1 1 14rem;
+      min-width: 0;
+      font-family: 'Courier New', monospace;
+      font-size: 1.75rem;
+      font-weight: 700;
+      padding: .5rem .85rem;
+      height: 3.5rem;
+      border: 3px solid #ccd0d9;
+      border-radius: 8px;
+      outline: none;           /* focus shown by the border colour below */
+      transition: border-color .2s;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .input-row input:focus-visible { border-color: #1565c0; }
+    .input-row input[aria-invalid="true"] { border-color: #b71c1c; }
+
+    /* secondary Validate button */
+    .btn-secondary {
+      padding: .5rem 1.1rem;
+      height: 3.5rem;
+      background: transparent;
+      color: #003776;
+      border: 2px solid #003776;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .2s;
+    }
+    .btn-secondary:hover { background: #e8f0fe; }
+
+    /* ghost Clear button */
+    .btn-ghost {
+      padding: .5rem .9rem;
+      height: 3.5rem;
+      background: transparent;
+      color: #555;
+      border: 2px solid #ccd0d9;
+      border-radius: 8px;
+      font-size: .9rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .2s;
+    }
+    .btn-ghost:hover { background: #f0f0f0; }
+
+    /* ── Example chips ────────────────────────────────────────────────── */
+    .examples-row {
+      margin-top: .75rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+    .examples-toggle {
+      font-size: .82rem;
+      color: #003776;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      padding: 0;
+      text-decoration: underline dotted;
+    }
+    .examples-toggle:focus-visible { outline-offset: 3px; }
+    .examples-list {
+      display: none;
+      gap: .4rem;
+      flex-wrap: wrap;
+    }
+    .examples-list.open { display: flex; }
+    .example-chip {
+      font-family: monospace;
+      font-size: .85rem;
+      padding: .25rem .65rem;
+      border-radius: 4px;
+      background: #e8eaf6;
+      color: #1a237e;
+      cursor: pointer;
+      border: 1px solid #9fa8da;
+      transition: background .15s;
+    }
+    .example-chip:hover { background: #c5cae9; }
+    .example-chip:focus-visible { outline-offset: 2px; }
+
+    /* ── CELEX visual display ─────────────────────────────────────────── */
+    .celex-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: stretch;
+      justify-content: center;
+      min-height: 96px;
+    }
+    .celex-segment {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      border-radius: 12px;
+      overflow: hidden;
+      min-width: 80px;
+      flex: 0 0 auto;
+      box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    }
+    .celex-segment .seg-value {
+      font-family: 'Courier New', monospace;
+      font-size: 2.85rem;
+      font-weight: 700;
+      padding: .5rem 1rem;
+      color: #fff;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    .celex-segment .seg-label {
+      font-size: .85rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 5px 10px;
+      background: rgba(0,0,0,.28);
+      color: #fff;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    /* Segment colours: on the segment so the label strip darkens the same hue */
+    .seg-sector  { background: #003776; }
+    .seg-year    { background: #1565c0; }
+    .seg-doctype { background: #6a1b9a; }
+    .seg-number  { background: #1b5e20; }
+    .seg-suffix  { background: #e65100; }
+
+    /* ── Status / result areas ──────────────────────────────────────────── */
+    #statusArea {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: .5rem;
+    }
+    #visualArea { margin-top: 1rem; }
+
+    /* ── Status badge ─────────────────────────────────────────────────── */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .4rem 1rem;
+      border-radius: 20px;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .status-badge.valid   { background: #e8f5e9; color: #1b5e20; }
+    .status-badge.invalid { background: #ffebee; color: #b71c1c; }
+    .status-badge.idle    { background: #e3f2fd; color: #0d47a1; }
+
+    /* ── EUR-Lex link button ──────────────────────────────────────────── */
+    .eurlex-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .4rem 1rem;
+      background: #003776;
+      color: #fff;
+      border-radius: 20px;
+      font-size: .95rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background .2s;
+    }
+    .eurlex-btn:hover { background: #1565c0; }
+    .eurlex-btn:focus-visible { outline-offset: 3px; }
+
+    /* ── EUR-Lex existence badge ──────────────────────────────────────── */
+    .exist-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .4rem 1rem;
+      border-radius: 20px;
+      font-size: .95rem;
+      font-weight: 700;
+    }
+    .exist-badge.checking { background: #e3f2fd; color: #0d47a1; }
+    .exist-badge.found    { background: #e8f5e9; color: #1b5e20; }
+    .exist-badge.notfound { background: #ffebee; color: #b71c1c; }
+    .exist-badge.error    { background: #fff3cd; color: #7a4f00; }
+
+    /* ── Details toggle ───────────────────────────────────────────────── */
+    .details-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      margin-top: .9rem;
+      font-size: .85rem;
+      font-weight: 600;
+      color: #003776;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline dotted;
+    }
+    .details-toggle:focus-visible { outline-offset: 3px; }
+    #detailsPanel { display: none; margin-top: .5rem; }
+    #detailsPanel.open { display: block; }
+
+    /* ── Result table ─────────────────────────────────────────────────── */
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .92rem;
+      margin-top: .5rem;
+    }
+    .result-table caption {
+      /* sr-only */
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .result-table th {
+      text-align: left;
+      padding: .45rem .75rem;
+      background: #e8eaf6;
+      color: #1a237e;
+      font-weight: 600;
+      width: 38%;
+    }
+    .result-table td {
+      padding: .45rem .75rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .result-table tr:last-child td { border-bottom: none; }
+    .result-table .pill {
+      display: inline-block;
+      padding: .15rem .55rem;
+      border-radius: 20px;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: .88rem;
+    }
+    .pill-sector  { background: #003776; color: #fff; }
+    .pill-year    { background: #1565c0; color: #fff; }
+    .pill-doctype { background: #6a1b9a; color: #fff; }
+    .pill-number  { background: #1b5e20; color: #fff; }
+    .pill-suffix  { background: #e65100; color: #fff; }
+
+    /* ── EUR-Lex link in table ────────────────────────────────────────── */
+    .eur-link {
+      color: #003776;
+      word-break: break-all;
+      font-size: .85rem;
+    }
+    .eur-link:hover { text-decoration: underline; }
+    .eur-link:focus-visible { outline-offset: 2px; }
+
+    /* ── Reference section (<details>) ───────────────────────────────── */
+    .ref-details {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 3px 12px rgba(0,0,0,.10);
+    }
+    .ref-details summary {
+      list-style: none;
+      padding: 1rem 1.75rem;
+      font-size: .9rem;
+      font-weight: 700;
+      color: #003776;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .ref-details summary::-webkit-details-marker { display: none; }
+    .ref-details summary::before {
+      content: '▶';
+      font-size: .7rem;
+      transition: transform .2s;
+    }
+    .ref-details[open] summary::before { transform: rotate(90deg); }
+    .ref-details summary:focus-visible { outline-offset: -3px; border-radius: 10px; }
+    .ref-inner {
+      padding: 0 1.75rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .ref-section h3 {
+      font-size: .85rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: #003776;
+      margin-bottom: .6rem;
+      border-bottom: 1px solid #c5cae9;
+      padding-bottom: .3rem;
+    }
+    .ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .45rem;
+      font-size: .82rem;
+    }
+    .ref-item {
+      background: #f8f9ff;
+      border: 1px solid #dde;
+      border-radius: 6px;
+      padding: .4rem .6rem;
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+    }
+    .ref-item .code {
+      font-family: monospace;
+      font-weight: 700;
+      color: #003776;
+      min-width: 2rem;
+    }
+    .ref-item .desc { color: #333; }
+    .ref-item .sectors { color: #555; font-size: .75rem; }
+    .ref-filter-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .85rem;
+      margin-bottom: .6rem;
+    }
+    .ref-filter-row label { font-weight: 600; color: #333; }
+    .ref-filter-row select {
+      padding: .25rem .45rem;
+      border-radius: 4px;
+      border: 1px solid #bbb;
+      font-size: .85rem;
+    }
+    .ref-filter-row select:focus-visible { outline-offset: 2px; }
+
+    /* ── Empty / error state ──────────────────────────────────────────── */
+    .empty-display {
+      color: #555;
+      font-style: italic;
+      font-size: .88rem;
+      padding: .4rem 0;
+    }
+
+    /* ── Error message ────────────────────────────────────────────────── */
+    .error-msg {
+      background: #ffebee;
+      color: #b71c1c;
+      border-radius: 6px;
+      padding: .55rem .85rem;
+      font-size: .9rem;
+      margin-top: .5rem;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: .8rem;
+      color: #555;
+    }
+    footer a { color: #003776; }
+    footer a:hover { text-decoration: underline; }
+    footer a:focus-visible { outline-offset: 2px; }
+
+    /* ── Reduced motion ───────────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-title">
+  <h1>CELEX Validator</h1>
+</header>
+
+<main>
+
+  <!-- ── Validator section ─────────────────────────────────────────────── -->
+  <section class="card" aria-label="Validate and parse a CELEX number">
+    <label class="input-label" for="celexInput">Enter a CELEX number</label>
+    <div class="input-row">
+      <input type="text" id="celexInput" placeholder="e.g. 32006L0112" autocomplete="off"
+             spellcheck="false" maxlength="40" />
+      <button type="button" class="btn-secondary" id="validateBtn">Validate</button>
+      <button type="button" class="btn-ghost" id="clearBtn">Clear</button>
+    </div>
+
+    <!-- Examples -->
+    <div class="examples-row">
+      <button type="button" class="examples-toggle" id="examplesToggle"
+              aria-expanded="false" aria-controls="examplesList">
+        Try an example
+      </button>
+      <div id="examplesList" class="examples-list" role="group" aria-label="Example CELEX numbers">
+        <button type="button" class="example-chip">32006L0112</button>
+        <button type="button" class="example-chip">32016R0679</button>
+        <button type="button" class="example-chip">62019CJ0001</button>
+        <button type="button" class="example-chip">12002E/TXT</button>
+      </div>
+    </div>
+
+    <!-- Status + link -->
+    <div id="statusArea" aria-live="polite" aria-atomic="true"></div>
+    <div id="errorArea" role="alert" aria-atomic="true"></div>
+
+    <!-- Visual segments -->
+    <div id="visualArea"></div>
+
+    <!-- Details toggle + panel -->
+    <div id="detailsToggleWrap" hidden>
+      <button type="button" class="details-toggle" id="detailsToggle"
+              aria-expanded="false" aria-controls="detailsPanel">
+        <span aria-hidden="true">▾</span> Details
+      </button>
+    </div>
+    <div id="detailsPanel" role="region" aria-label="Parsed CELEX details"></div>
+  </section>
+
+  <!-- ── Reference codes (lazy) ────────────────────────────────────────── -->
+  <details class="ref-details" id="refDetails">
+    <summary>Reference codes</summary>
+    <div class="ref-inner" id="refInner">
+
+      <section class="ref-section" aria-labelledby="sectors-heading">
+        <h3 id="sectors-heading">Sector Codes</h3>
+        <div class="ref-grid" id="sectorGrid"></div>
+      </section>
+
+      <section class="ref-section" aria-labelledby="doctypes-heading">
+        <h3 id="doctypes-heading">Document Type Codes</h3>
+        <div class="ref-filter-row">
+          <label for="sectorFilter">Filter by sector:</label>
+          <select id="sectorFilter">
+            <option value="">All</option>
+          </select>
+        </div>
+        <div class="ref-grid" id="docTypeGrid"></div>
+      </section>
+
+    </div>
+  </details>
+
+</main>
+
+<footer>
+  EUR-Lex CELEX decoder &nbsp;·&nbsp;
+  <a href="https://eur-lex.europa.eu/content/help/eurlex-content/celex-number.html"
+     target="_blank" rel="noopener">
+    EUR-Lex CELEX documentation<span class="sr-only"> (opens in new tab)</span>
+  </a>
+  &nbsp;·&nbsp;
+  <a href="https://eur-lex.europa.eu/content/tools/HowCelexNumbersAreComposed.pdf"
+     target="_blank" rel="noopener">
+    How CELEX numbers are composed (PDF)<span class="sr-only"> (opens in new tab)</span>
+  </a>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

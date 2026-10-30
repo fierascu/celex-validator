@@ -1,0 +1,7 @@
+.git
+.idea
+target
+e2e
+*.md
+Dockerfile
+fly.toml

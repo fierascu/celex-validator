@@ -1,0 +1,37 @@
+# fly.toml app configuration file generated for celex-validator on 2026-10-29T16:14:20Z
+#
+# See https://docs.fly.io/reference/configuration for information about how to use this file.
+#
+
+app = 'celex-validator'
+primary_region = 'ams'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 1
+  concurrency = { hard_limit = 200, soft_limit = 150, type = 'requests' }
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 512
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 512
+  processes = ['app']
+  size = 'shared-cpu-1x'
+
+[[restart]]
+  policy = 'on-failure'
+  processes = ['app']
+  retries = 3

@@ -1,0 +1,28 @@
+# Maven build output
+target/
+
+# Quarkus dev-mode generated files
+.quarkus/
+
+# IDE project files
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+*.launch
+.vscode/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Logs written during smoke-testing
+*.log
+
+# Playwright e2e tests
+e2e/node_modules/
+e2e/playwright-report/
+e2e/test-results/
